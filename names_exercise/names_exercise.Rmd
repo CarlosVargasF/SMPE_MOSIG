@@ -1,0 +1,173 @@
+---
+title: "French Names exercise"
+author: "Carlos Vargas"
+date: "October, 2021"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# The environment
+library(tidyverse)
+library(ggplot2)
+
+version
+```
+The aim of the activity is to develop a methodology to answer a specific question on a given dataset. 
+
+The dataset is the set of Firstname given in France on a large period of time. 
+[given names data set of INSEE](https://www.insee.fr/fr/statistiques/fichier/2540004), we choose this dataset because it is sufficiently large, you can't do the analysis by hand, the structure is simple
+
+You need to use the _tidyverse_ for this analysis. Unzip the file _dpt2019_txt.zip_ (to get the **dpt2019.csv**). Read in R with this code. Note that you might need to install the `readr` package with the appropriate command.
+
+## Download Raw Data from the website
+```{r}
+file = "dpt2020_txt.zip"
+if(!file.exists(file)){
+  download.file("https://www.insee.fr/fr/statistiques/fichier/2540004/dpt2020_csv.zip",
+	destfile=file)
+}
+unzip(file)
+```
+
+All of these following questions may need a preliminary analysis of the data, feel free to present answers and justifications in your own order and structure your report as it should be for a scientific report.
+
+1. Choose a firstname and analyse its frequency along time. Compare several firstnames frequency
+2. Establish, by gender, the most given firstname by year. 
+3. Make a short synthesis
+4. Advanced (not mandatory) : is the firstname correlated with the localization (department) ? What could be a method to analyze such a correlation.
+
+The report should be a pdf knitted from a  notebook (around  3 pages including figures), the notebook and the report should be delivered.
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+# Results of Analysis
+
+The first thing I notice is that the provided file name (**dpt2019.csv**) for the .csv file is wrong, this file does not exist after unzipping. I check the files in my current directory. 
+
+```{r}
+list.files()
+```
+## Build the Dataframe from correct file
+```{r}
+FirstNames <- read_delim("dpt2020.csv",delim =";")
+```
+## Overview of the data
+We have 5 attributes in the dataset, 3 of them have `character` type, the other 2 are `doubles`.
+
+```{r}
+summary(FirstNames)
+```
+
+
+```{r}
+FirstNames
+```
+At first glance, it seems that all the names are the same ('_PRENOMS_RARES'), so let's list some of the distinct values for the column `preusuel` and its count
+
+```{r}
+distinc_names = unique(FirstNames['preusuel'])
+head(distinc_names)
+```
+
+```{r}
+count(distinc_names)
+```
+We actually have quite a lot of different names (35011).
+
+Lets check the range of values for the year of birth.
+```{r}
+unique(FirstNames['annais'])
+
+```
+We have data from 1900 to 2020. We also have registers with no year ('XXXX').
+
+
+Now, lets take a (not that random) name, say 'CARLOS', and check its frequency over the time. First, the whole dataset is filtered to get only the observations matching the given name, then this subset is grouped by year of birth and finally that result is used to create a new dataset including a new the attribute, the frequency.
+
+```{r}
+freq_carlos <- FirstNames %>% filter(preusuel == 'CARLOS') %>% group_by(annais, preusuel) %>% summarize(frequency=sum(nombre))
+
+freq_carlos
+```
+
+### Plot the frequency of name 'CARLOS'
+```{r, fig.height=8, fig.width=14}
+library(ggplot2)
+ggplot(freq_carlos, aes(x = annais, y = frequency)) +
+  geom_bar(fill = "#0073C2FF", stat = "identity") +
+  #geom_text(aes(label = Frequency), vjust = -0.3, angle = 90) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.1, hjust=.5)) +
+  ggtitle("Frequency Plot - name='CARLOS'") +
+  xlab("Birth year") + ylab("Frequency")
+```
+By regardind the plot, the data describes a gaussian distribution in the frequencies. Between years 1961 to 1986 we observe a considerably increase in people named 'CARLOS', this could have many explanations related with relevant political, economical or social events happened in that period of time. 
+We also observe a large number of people (~2500) named Carlos for which there is no record of the year of birth. We have this in mind for next analysis.
+
+Now lets make the same analysis but for a different name, say CHARLES.
+
+```{r}
+freq_charles <- FirstNames %>% filter(preusuel == 'CHARLES') %>% group_by(annais, preusuel) %>% summarize(frequency=sum(nombre))
+
+freq_charles
+```
+### Plot the frequency of name 'CHARLES'
+```{r, fig.height=8, fig.width=14}
+library(ggplot2)
+ggplot(freq_charles, aes(x = annais, y = frequency)) +
+  geom_bar(fill = "#0073C2FF", stat = "identity") +
+  #geom_text(aes(label = Frequency), vjust = -0.3, angle = 90) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.1, hjust=.5)) +
+  ggtitle("Frequency Plot - name='CHARLES'") +
+  xlab("Birth year") + ylab("Frequency")
+```
+
+From the second plot, we observe that the frequency distribution for the name 'CHARLES' is a bit more uniform. Also, there are more indivisuals within this group compared with the previous one, this is expected because 'CHARLES' is a pretty common name in France and western Europe. We still see a considerably number of observations with no birth of year (~2000).
+
+## Most given firstnames
+We will establish, by gender, the most given firstname by year.
+
+First, we group the data by name, year of birth and sex. We also compute the frequency for the names. 
+```{r}
+
+all_names <- FirstNames %>% group_by(preusuel, annais, sexe) %>% summarize(frequency=sum(nombre))
+```
+Then we remove the observations with no year of birth, as well as those with rare names. 
+
+```{r}
+all_names <- all_names %>% filter(annais != "XXXX") %>% filter(preusuel != "_PRENOMS_RARES") 
+all_names <- all_names %>% group_by(annais, sexe) %>% top_n(n=1) 
+```
+We filter the male names and plot the most used names per year.
+
+```{r}
+labels <- seq(1900, 2020, length.out=5)
+
+most_used_man <- all_names %>% filter(sexe == 1) 
+
+plot_man <- ggplot(data=most_used_man, mapping = aes(x = annais, y = frequency, color=preusuel)) +
+  scale_x_discrete(breaks = labels, labels=as.character(labels)) + geom_point() + geom_line() +
+  ggtitle("Most used male name per year")
+
+plot_man
+```
+We use now the most used woman names.
+
+```{r}
+most_used_woman <- all_names %>% filter(sexe == 2) 
+
+plot_woman <- ggplot(data=most_used_woman, mapping = aes(x = annais, y = frequency, color=preusuel)) +
+  scale_x_discrete(breaks = labels, labels=as.character(labels)) + geom_point() + geom_line() +
+  ggtitle("Most used female name per year")
+
+plot_woman
+```
+
+## Comments
+From the las plots we can observe that for males, there are som names (e.g. Jean) that tend to be quite popular for about 50 years (1900-1950) which is weird. After 1960, other names remains popular for a couple of consecutive years but the general picture is more heterogeneous, decreasing the frequency of popular names over the years. In the case of woman names, the pattern is the same. Both plots show that in recent years the diversification of names is much more evident.  
