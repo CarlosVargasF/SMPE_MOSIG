@@ -1,0 +1,96 @@
+---
+title: "peers_activity"
+author: "CarlosVargas"
+date: "November 28, 2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# The environment
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+library(dplyr)
+```
+
+## Downloading the data
+
+```{r}
+df <- read.csv("data/time_series_covid19_confirmed_global.csv",header=T)
+
+#new_df = df %>% group_by(Type, Size) %>% summarise(AvgTime=mean(Time))
+```
+
+```{r}
+count(df)
+length(df)
+```
+
+```{r}
+lenColnames <- length(colnames(df))
+```
+
+```{r}
+dates <- colnames(df)[5:lenColnames]
+afgan <- df[1,5:lenColnames]
+
+```
+
+```{r}
+dates <- gsub("X", "", dates)
+dates <- as.Date(dates, "%m.%d.%Y")
+
+```
+
+```{r}
+dates <-dates %m+% years(2000)
+dates[c(1)]
+```
+
+```{r}
+afgan <- unlist(afgan)
+```
+
+```{r}
+df2 <- data.frame(dates,afgan)
+df2
+```
+
+```{r}
+ggplot( data = df2, aes(  dates,  afgan )) + geom_line()
+#plot(factor(dates),afgan)
+#as.numeric(unlist(dates))
+```
+
+```{r}
+df3 <- df %>% filter(Country.Region %in% c("Belgium","China","China, Hong-Kong","France","Germany","Iran","Italy","Japan","Korea, South","Netherlands","Portugal","Spain","United Kingdom","US"))
+
+```
+
+```{r}
+df3[,c(1:4)]
+```
+```{r}
+df4 <- df3 %>% filter(Province.State == "" | Country.Region == "China")
+df4[,c(1:2,5:8)]
+```
+```{r}
+df4 <- df4 %>% group_by(Country.Region)
+```
+
+```{r}
+colnames(df)[c(1:3)]
+```
+
+```{r}
+# plot(dates,afgan, xaxt="n", xlab="", ylab="")
+# axis.Date(1, at = seq(dates[1], dates[length(dates)], by="month"),
+#    labels= seq(dates[1], dates[length(dates)], by="month"),
+#    format="%d-%m-%Y", las = 2)
+```
+
+
