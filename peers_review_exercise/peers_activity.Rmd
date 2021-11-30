@@ -5,31 +5,36 @@ date: "November 28, 2021"
 output: pdf_document
 ---
 
+# Peer-reviewed Exercise: The SARS-CoV-2 (Covid-19) epidemic
+
+The goal of this project is to produce plots showing the cumulative number of infected people for different countries. To do that, we need to perform several data processing steps to filter and format the data as required. 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## The environment
+Those are the required libraries.
 ```{r}
-# The environment
 library(tidyverse)
 library(ggplot2)
 library(lubridate)
+library(reshape2)
 library(dplyr)
 ```
 
-## Downloading the data
+## Creating a Dataframe from the data
+The dataset (time_series_covid19_confirmed_global.csv) can be obtained from [this](https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv) source. The data is compiled by the [Johns Hopkins University Center for Systems Science and Engineering JHU CSSE](https://systems.jhu.edu/).
 
+We create a new dataframe from the data file.
 ```{r}
-df <- read.csv("data/time_series_covid19_confirmed_global.csv",header=T)
-
-#new_df = df %>% group_by(Type, Size) %>% summarise(AvgTime=mean(Time))
+df <- read.csv("data/time_series_covid19_confirmed_global.csv",header=T,stringsAsFactors=FALSE)
 ```
-
+## Exploring the data
+We check some basic properties of the data.
 ```{r}
-count(df)
-length(df)
+colnames(df)
 ```
-
+It seems we have 679 columns, most of them correspond to daily dates which range from 22/01/2020 to 26/11/ 2021. 
 ```{r}
 lenColnames <- length(colnames(df))
 ```
@@ -79,18 +84,76 @@ df4 <- df3 %>% filter(Province.State == "" | Country.Region == "China")
 df4[,c(1:2,5:8)]
 ```
 ```{r}
-df4 <- df4 %>% group_by(Country.Region)
+# df4 <- df4 %>% group_by(Country.Region)
 ```
 
 ```{r}
 colnames(df)[c(1:3)]
 ```
+```{r}
+df4[df4["Province.State"] == "Hong Kong", 2] <- "Hong Kong"
+df4 <- df4[,c(2,5:ncol(df4))]
+df4[c(1:15),c(1:5)]
+```
 
 ```{r}
+# df5 <- df4 %>% aggregate(Country.Region, by=list(Category=x$Category), FUN=sum)
+
+
+df5 <- df4 %>% 
+  group_by(Country.Region) %>% 
+  summarise(across(everything(), sum))
+
+df5[,c(1:5)]
 # plot(dates,afgan, xaxt="n", xlab="", ylab="")
 # axis.Date(1, at = seq(dates[1], dates[length(dates)], by="month"),
 #    labels= seq(dates[1], dates[length(dates)], by="month"),
 #    format="%d-%m-%Y", las = 2)
 ```
+```{r}
+melted_df <- melt(df5, id.vars="Country.Region")
+```
 
+```{r}
+melted_df[c(1:10),]
+```
+
+```{r}
+ggplot(melted_df, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region))
+```
+
+```{r}
+colnames(df4)[c(2:5)]
+
+# Replace Foo with FooFoo
+lst <- lapply(df4, function(x) setNames(x, gsub("X", "", names(x))) )
+colnames(lst)
+```
+```{r}
+ 
+df6 <- df4 %>% 
+  group_by(Country.Region) %>% 
+  summarise(across(everything(), sum))
+
+colnames(df6)[c(2:ncol(df6))] <- c(gsub("X", "", names(df6[c(2:ncol(df6))])))
+
+# colnames(df5) <- colnames(df5) %m+% years(2000)
+df6[c(1:5),c(1:5)]
+```
+```{r}
+melted_df2 <- melt(df6, id.vars="Country.Region")
+# melted_df.variable = as.Date(c(gsub("X", "", melted_df["variable"])), "%m.%d.%Y") 
+
+# colnames(df6)[c(2:ncol(df6))] <- as.Date(colnames(df6[c(2:ncol(df6))]), "%m.%d.%Y") %m+% years(2000)
+
+melted_df2$variable = as.Date(melted_df2$variable, "%m.%d.%Y") %m+% years(2000)
+
+melted_df2[c(1:10),]
+```
+```{r}
+ggplot(melted_df2, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region)) + scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=90, hjust=1)) + ggtitle("Cases per Country")+ labs(y= "Cumulative Number of cases", x = "Date")
+```
+```{r}
+ggplot(melted_df2, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region)) + scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=90, hjust=1)) + ggtitle("Cases per Country")+ labs(y= "Cumulative Number of cases", x = "Date") + scale_y_continuous(trans='log10')
+```
 
