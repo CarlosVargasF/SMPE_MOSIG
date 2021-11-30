@@ -7,14 +7,14 @@ output: pdf_document
 
 # Peer-reviewed Exercise: The SARS-CoV-2 (Covid-19) epidemic
 
-The goal of this project is to produce plots showing the cumulative number of infected people for different countries. To do that, we need to perform several data processing steps to filter and format the data as required. 
+The goal of this project is to produce plots similar to those in the [South China Morning Post (SCMP)](https://en.wikipedia.org/wiki/Coronavirus_disease_2019), showing the cumulative number of infected people for different countries. To do that, we need to perform several data processing steps to filter and format the data as required. 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## The environment
 Those are the required libraries.
-```{r}
+```{r, message=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(lubridate)
@@ -30,130 +30,81 @@ We create a new dataframe from the data file.
 df <- read.csv("data/time_series_covid19_confirmed_global.csv",header=T,stringsAsFactors=FALSE)
 ```
 ## Exploring the data
-We check some basic properties of the data.
+Let's gain some insight of the data.
 ```{r}
-colnames(df)
+ncol(df)
+nrow(df)
+colnames(df)[c(1:15)]
+colnames(df)[c(ncol(df))]
 ```
-It seems we have 679 columns, most of them correspond to daily dates which range from 22/01/2020 to 26/11/ 2021. 
+It seems we have 280 rows and 679 columns, most of the colulmns correspond to daily dates which range from 22/01/2020 to 26/11/2021. 
+
+We remove the `Lat` and `Long` columns as we are not interested on this information. Lets take a look to the first columns of the dataset.
 ```{r}
-lenColnames <- length(colnames(df))
+df <- df[,c(1:2,5:ncol(df))]
+df[c(1:10), c(1:5)]
 ```
+## Data Transformation
+We will focus on the following countries: Belgium, China, France, Germany, Italy, Japan, Korea South, Netherlands, Portugal, Spain, United Kingdom and US. 
 
 ```{r}
-dates <- colnames(df)[5:lenColnames]
-afgan <- df[1,5:lenColnames]
-
-```
-
-```{r}
-dates <- gsub("X", "", dates)
-dates <- as.Date(dates, "%m.%d.%Y")
-
-```
-
-```{r}
-dates <-dates %m+% years(2000)
-dates[c(1)]
-```
-
-```{r}
-afgan <- unlist(afgan)
-```
-
-```{r}
-df2 <- data.frame(dates,afgan)
-df2
-```
-
-```{r}
-ggplot( data = df2, aes(  dates,  afgan )) + geom_line()
-#plot(factor(dates),afgan)
-#as.numeric(unlist(dates))
-```
-
-```{r}
-df3 <- df %>% filter(Country.Region %in% c("Belgium","China","China, Hong-Kong","France","Germany","Iran","Italy","Japan","Korea, South","Netherlands","Portugal","Spain","United Kingdom","US"))
+df <- df %>% filter(Country.Region %in% c("Belgium","China","France","Germany","Iran","Italy","Japan","Korea, South","Netherlands","Portugal","Spain","United Kingdom","US"))
 
 ```
-
+Lets take a look to what we got. We temporary omit the dates.
 ```{r}
-df3[,c(1:4)]
+df[,c(1:2)]
 ```
+Some countries (e.g. France, United Kingdom, etc) have several colony states that will not be considered in this study, so we filter out the rows containing some entry in `Province.State`. China is a special case, as it is listed by its provinces.
 ```{r}
-df4 <- df3 %>% filter(Province.State == "" | Country.Region == "China")
-df4[,c(1:2,5:8)]
+df <- df %>% filter(Province.State == "" | Country.Region == "China")
+df[,c(1:2)]
 ```
+The province of $Hong Kong$ has to be considered as an independent country as it was treated this way by the SCMP. Thus, we modify the corresponding row. 
 ```{r}
-# df4 <- df4 %>% group_by(Country.Region)
+df[df["Province.State"] == "Hong Kong", 2] <- "Hong Kong"
+```
+We get rid of the `Province.State` column as we do not need it anymore.
+```{r}
+df <- df[,c(2:ncol(df))]
+```
+Let's check our dataset.
+```{r}
+df[,c(1:5)]
 ```
 
+Next step is to group all the rows corresponding to $China$ and add them up.
 ```{r}
-colnames(df)[c(1:3)]
-```
-```{r}
-df4[df4["Province.State"] == "Hong Kong", 2] <- "Hong Kong"
-df4 <- df4[,c(2,5:ncol(df4))]
-df4[c(1:15),c(1:5)]
-```
-
-```{r}
-# df5 <- df4 %>% aggregate(Country.Region, by=list(Category=x$Category), FUN=sum)
-
-
-df5 <- df4 %>% 
+df <- df %>% 
   group_by(Country.Region) %>% 
   summarise(across(everything(), sum))
 
-df5[,c(1:5)]
-# plot(dates,afgan, xaxt="n", xlab="", ylab="")
-# axis.Date(1, at = seq(dates[1], dates[length(dates)], by="month"),
-#    labels= seq(dates[1], dates[length(dates)], by="month"),
-#    format="%d-%m-%Y", las = 2)
+df[,c(1:5)]
 ```
+Now, we flatten the date columns to proceed with the plotting. We check with a subset. 
 ```{r}
-melted_df <- melt(df5, id.vars="Country.Region")
+melted_df <- melt(df, id.vars="Country.Region")
+melted_df[c(1:20),]
 ```
+We need to format the dates correctly. We extract the useful information from the date names and an amount of years to each of them to get the real date. 
 
 ```{r}
+melted_df$variable = as.Date(melted_df$variable, "X%m.%d.%Y") %m+% years(2000)
+
 melted_df[c(1:10),]
 ```
+## Ploting
+
+### Linear Scale
+Using the `melted_df` dataframe, we create a plot with the dates (`variable`) on the x axis and the cumulative number of cases (`value`) in the y axis. The dates are expressed per month and for the number of cases we used a linear scale.
 
 ```{r}
-ggplot(melted_df, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region))
+ggplot(melted_df, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region)) + scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=90, hjust=1)) + ggtitle("Cases per Country")+ labs(y= "Cumulative Number of cases", x = "Date")
 ```
 
+### Logarithmic Scale
+We recreate the same plot but using logarithmic scale this time.
 ```{r}
-colnames(df4)[c(2:5)]
-
-# Replace Foo with FooFoo
-lst <- lapply(df4, function(x) setNames(x, gsub("X", "", names(x))) )
-colnames(lst)
-```
-```{r}
- 
-df6 <- df4 %>% 
-  group_by(Country.Region) %>% 
-  summarise(across(everything(), sum))
-
-colnames(df6)[c(2:ncol(df6))] <- c(gsub("X", "", names(df6[c(2:ncol(df6))])))
-
-# colnames(df5) <- colnames(df5) %m+% years(2000)
-df6[c(1:5),c(1:5)]
-```
-```{r}
-melted_df2 <- melt(df6, id.vars="Country.Region")
-# melted_df.variable = as.Date(c(gsub("X", "", melted_df["variable"])), "%m.%d.%Y") 
-
-# colnames(df6)[c(2:ncol(df6))] <- as.Date(colnames(df6[c(2:ncol(df6))]), "%m.%d.%Y") %m+% years(2000)
-
-melted_df2$variable = as.Date(melted_df2$variable, "%m.%d.%Y") %m+% years(2000)
-
-melted_df2[c(1:10),]
-```
-```{r}
-ggplot(melted_df2, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region)) + scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=90, hjust=1)) + ggtitle("Cases per Country")+ labs(y= "Cumulative Number of cases", x = "Date")
-```
-```{r}
-ggplot(melted_df2, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region)) + scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=90, hjust=1)) + ggtitle("Cases per Country")+ labs(y= "Cumulative Number of cases", x = "Date") + scale_y_continuous(trans='log10')
+ggplot(melted_df, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region)) + scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=90, hjust=1)) + ggtitle("Cases per Country")+ labs(y= "Cumulative Number of cases", x = "Date") + scale_y_continuous(trans='log10')
 ```
 
