@@ -86,7 +86,7 @@ Now, we flatten the date columns to proceed with the plotting. We check with a s
 melted_df <- melt(df, id.vars="Country.Region")
 melted_df[c(1:20),]
 ```
-We need to format the dates correctly. We extract the useful information from the date names and an amount of years to each of them to get the real date. 
+We need to format the dates correctly. We extract the useful information from the date names and an amount of years (2000) to each of them to get the real date. 
 
 ```{r}
 melted_df$variable = as.Date(melted_df$variable, "X%m.%d.%Y") %m+% years(2000)
@@ -108,3 +108,49 @@ We recreate the same plot but using logarithmic scale this time.
 ggplot(melted_df, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region)) + scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=90, hjust=1)) + ggtitle("Cases per Country")+ labs(y= "Cumulative Number of cases", x = "Date") + scale_y_continuous(trans='log10')
 ```
 
+## Cumulative Number of deaths
+
+We perform the same previously described steps over the table of number of deaths to get the corresponding graphs. This table has the exact same structure as the previous one.
+
+```{r}
+df2 <- read.csv("data/time_series_covid19_deaths_global.csv",header=T,stringsAsFactors=FALSE)
+```
+Filter the countries of interes.
+```{r}
+df2 <- df2 %>% filter(Country.Region %in% c("Belgium","China","France","Germany","Iran","Italy","Japan","Korea, South","Netherlands","Portugal","Spain","United Kingdom","US"))
+```
+Filter out the countries' colonies.
+```{r}
+df2 <- df2 %>% filter(Province.State == "" | Country.Region == "China")
+```
+We treat the province of Hong-Kong as a country.
+```{r}
+df2[df2["Province.State"] == "Hong Kong", 2] <- "Hong Kong"
+df2 <- df2[,c(2:ncol(df2))]
+```
+Group all the rows corresponding to $China$ and add them up.
+```{r}
+df2 <- df2 %>% 
+  group_by(Country.Region) %>% 
+  summarise(across(everything(), sum))
+```
+Flatten the columns to plot.
+```{r}
+melted_df2 <- melt(df2, id.vars="Country.Region")
+```
+Formatting the dates.
+```{r}
+melted_df2$variable = as.Date(melted_df2$variable, "X%m.%d.%Y") %m+% years(2000)
+```
+## Ploting
+
+### Linear Scale
+
+```{r}
+ggplot(melted_df2, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region)) + scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=90, hjust=1)) + ggtitle("Deaths per Country")+ labs(y= "Cumulative Number of deaths", x = "Date")
+```
+### Logarithmic Scale
+
+```{r}
+ggplot(melted_df2, aes(x = variable, y = value)) + geom_line(aes(color = Country.Region, group = Country.Region)) + scale_x_date(date_breaks = "1 month", date_labels =  "%b %Y") + theme(axis.text.x=element_text(angle=90, hjust=1)) + ggtitle("Deaths per Country")+ labs(y= "Cumulative Number of deaths", x = "Date") + scale_y_continuous(trans='log10')
+```
