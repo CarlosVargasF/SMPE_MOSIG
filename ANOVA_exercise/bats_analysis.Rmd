@@ -1,0 +1,72 @@
+---
+title: "bats_analysis"
+author: "CarlosVargas"
+date: "December 9, 2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+myData <- read.table(file="bats.csv", sep=";", skip=3, header=T)
+names(myData)
+```
+
+## Study of the relationship between brain weight and body mass
+```{r}
+phyto=myData[(myData$Diet==1),]
+```
+
+```{r, echo=FALSE}
+ggplot(phyto, aes(x=BOW, y=BRW)) +
+  geom_point(alpha=0.5) + geom_line(alpha=0.5) + ggtitle("Total brain weight vs Body mass") +
+  scale_y_continuous(trans='log10') + scale_x_continuous(trans='log10')
+```
+
+```{r}
+reg1 = lm(BRW ~ BOW, data=phyto)
+```
+
+```{r}
+summary(reg1)
+```
+### Mathematical form
+see notebook
+
+```{r}
+anova(reg1)
+```
+
+
+```{r}
+plot(reg1$fitted.values, reg1$residuals, xlab="Predicted", ylab="Residuals")
+```
+
+```{r}
+plot(reg1,4)
+which(phyto$BRW>8000)
+phytobis=phyto[which(phyto$BRW<8000),]
+reg2 = lm(BRW ~ BOW, data=phytobis)
+summary(reg2)
+```
+
+```{r}
+par(mfcol=c(2,2))
+plot(reg1)
+```
+
+
+```{r}
+par(mfcol=c(2,2))
+plot(reg2)
+```
+
+By observing diagnostic graphs 2 and 3 for reg1 and reg2, we can see that in the case of graph 2 (Scale-Location), the data points are grouped describe a pattern.
+
+graph 3 comparison: More symetric wrt zero (reg2). reg1 not that symetric.
+
+
+## 3. Study of the contribution to the total weight of each part of the
+brain
