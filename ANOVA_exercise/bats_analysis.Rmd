@@ -3,9 +3,9 @@ title: 'TP: Is Batman Somewhere'
 author: "Olaniyan Folajimi and Carlos Vargas"
 date: "December 9, 2021"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
-  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
