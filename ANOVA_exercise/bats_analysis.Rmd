@@ -1,8 +1,11 @@
 ---
-title: "TP: Is Batman Somewhere"
+title: 'TP: Is Batman Somewhere'
 author: "Olaniyan Folajimi and Carlos Vargas"
 date: "December 9, 2021"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -16,6 +19,7 @@ library(ggplot2)
 ```{r}
 myData <- read.table(file="bats.csv", sep=";", skip=3, header=T)
 names(myData)
+dim(myData)
 ```
 
 ## Study of the relationship between brain weight and body mass
@@ -23,27 +27,65 @@ names(myData)
 phyto=myData[(myData$Diet==1),]
 ```
 
+
 ```{r, echo=FALSE}
 ggplot(phyto, aes(x=BOW, y=BRW)) +
-  geom_point(alpha=0.5) + geom_line(alpha=0.5) + ggtitle("Total brain weight vs Body mass") +
-  scale_y_continuous(trans='log10') + scale_x_continuous(trans='log10')
+  geom_point() + ggtitle("Total brain weight vs Body mass") + 
+  labs(x="Body mass (grams)", y="Brain mass (micrograms)")
+```
+The initial graph shows a linear relationship between the brain mass and body mass. The data also appear to be clustered as $95\%$ of the data points have a body mass below 250. In the following graph, we try to observe a more spreadout representation by taking the logarithm of the data.
+
+```{r, echo=FALSE}
+ggplot(phyto, aes(x=BOW, y=BRW)) +
+  geom_point(alpha=0.5)+ ggtitle("Total brain weight vs Body mass") +
+  scale_y_continuous(trans='log10') + scale_x_continuous(trans='log10') +
+  labs(x="Body mass", y="Brain mass")
+```
+We can also include fit regression lines to both graphs as below:
+
+```{r, echo=FALSE}
+ggplot(phyto, aes(x=BOW, y=BRW)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  ggtitle("Total brain weight vs Body mass") + 
+  labs(x="Body mass (grams)", y="Brain mass (micrograms)")
+```
+
+```{r, echo=FALSE}
+ggplot(phyto, aes(x=BOW, y=BRW)) +
+  geom_point(alpha=0.5) +
+  geom_smooth(method = "lm") + 
+  ggtitle("Total brain weight vs Body mass") +
+  scale_y_continuous(trans='log10') + scale_x_continuous(trans='log10') +
+  labs(x="Body mass", y="Brain mass")
 ```
 
 ```{r}
 reg1 = lm(BRW ~ BOW, data=phyto)
 ```
+### Mathematical form
+In general, the expression of the model estimated for linear regression is: $Y = \hat{\beta}_1 + \hat{\beta}_2X + \epsilon$ R. Specifically, R computes $$BRW = \hat{\beta}_1 + \hat{\beta}_2BOW + \epsilon$$
 
+### Regression summary
 ```{r}
 summary(reg1)
 ```
-### Mathematical form
-see notebook
 
+  1. Intercept: $\hat{\beta}_1 = 623.4469$.
+  2. $\hat{\beta}_2 = 8.9999$.
+  3. Test statistics: $T_{\hat{\beta}_1} = 7.652$ and $T_{\hat{\beta}_2} = 22.659$.
+  4. The p-value < $2.2 \times 10^{-16}$ << $0.05$ showing that BOW has an influence on BRW.
+  5. The null hypothesis H0 is $\hat{\beta}_1 = \hat{\beta}_2 = 0$. In this case it is rejected as $\hat{\beta}_2 \neq 0$ and the p-value is also very small.
+  6. Based on the above observations, we can say that body mass has an effect on  brain weight and the relationship is linear.
+  7. Coefficient of determination: $R^2 = 0.95$ which tells that almost all the variation is explained by the model.  
+
+### Analysis of variance (ANOVA)
 ```{r}
 anova(reg1)
 ```
+The analysis of variance provides additional information such as Sum of Squared Explained (SSE) = $80888380$ and Sum of Residual Squares (SRS) = $4253838$.
 
-
+### Graph of residuals
 ```{r}
 plot(reg1$fitted.values, reg1$residuals, xlab="Predicted", ylab="Residuals")
 ```
