@@ -12,8 +12,15 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+## 1. Preamble
+
+The goal of this exercise is to implement the estimation and classical tests for simple and multivariate regression models and analysis of variance. The data is obtained from a study on the brain size of bats. The abbreviations given in the file are described in the article like Diet categories (1 = phytophage; 2 = gleaner; 3 = aerial insectivore; 4 = vampire), BOW = body mass, BRW = brain mass, AUD = auditory nuclei volume, MOB = main olfactory bulb volume ; HIP = hippocampus volume.
+
+
 ```{r}
 library(ggplot2)
+library(corrplot)
 ```
 
 ```{r}
@@ -22,7 +29,7 @@ names(myData)
 dim(myData)
 ```
 
-## Study of the relationship between brain weight and body mass
+## 2. Study of the relationship between brain weight and body mass
 ```{r}
 phyto=myData[(myData$Diet==1),]
 ```
@@ -64,7 +71,7 @@ ggplot(phyto, aes(x=BOW, y=BRW)) +
 reg1 = lm(BRW ~ BOW, data=phyto)
 ```
 ### Mathematical form
-In general, the expression of the model estimated for linear regression is: $Y = \hat{\beta}_1 + \hat{\beta}_2X + \epsilon$ R. Specifically, R computes $$BRW = \hat{\beta}_1 + \hat{\beta}_2BOW + \epsilon$$
+In general, the expression of the model estimated for linear regression is: $Y = \hat{\beta}_1 + \hat{\beta}_2 \times X + \epsilon$ R. Specifically, R computes $$BRW = \hat{\beta}_1 + \hat{\beta}_2 \times BOW + \epsilon$$
 
 ### Regression summary
 ```{r}
@@ -89,30 +96,125 @@ The analysis of variance provides additional information such as Sum of Squared 
 ```{r}
 plot(reg1$fitted.values, reg1$residuals, xlab="Predicted", ylab="Residuals")
 ```
+The graph shows a pattern where the residual increases as the predicted brain weight increases. In generally, this graph should be without structure. Also, we can observe that the model predicts almost $10000\mu g$ for one of the samples and this appears to be outside the general range of values. We assume this is an outlier and we can confirm this by drawing a plot the Cook's distance.
+
+### Cook's distance
 
 ```{r}
 plot(reg1,4)
-which(phyto$BRW>8000)
+```
+The graph shows that observation $7$ has a Cook's distance that is orders of magnitude above all other samples. There is a high probability that this is the outlier sample so we will remove from consideration. We also redo the analysis without it.
+
+### New Analysis
+
+```{r}
+phyto[7,]
+```
+Here we see that sample $7$ has a brain weight of $9121\mu g$.	
+
+```{r}
 phytobis=phyto[which(phyto$BRW<8000),]
+```
+
+We plot the new data as shown below:
+```{r}
+ggplot(phytobis, aes(x=BOW, y=BRW)) +
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  ggtitle("Total brain weight vs Body mass") + 
+  labs(x="Body mass (grams)", y="Brain mass (micrograms)")
+```
+```{r}
 reg2 = lm(BRW ~ BOW, data=phytobis)
 summary(reg2)
 ```
+We look at the regression analysis again:
 
+  1. Intercept: $\hat{\beta}_1 = 346.5452$.
+  2. $\hat{\beta}_2 = 14.5099$.
+  3. Test statistics: $T_{\hat{\beta}_1} = 9.764$ and $T_{\hat{\beta}_2} = 33.860$.
+  4. The p-value < $2.2 \times 10^{-16}$ << $0.05$ showing that BOW has an influence on BRW.
+  5. Coefficient of determination: $R^2 = 0.9778$ which tells that almost all the variation is explained by the model.  
+
+In general, the fit of the data appears to be better that in the previous analysis. The $\hat{\beta}_2$ is higher showing an increased influence of body mass on the response. 
+
+### Comparison of diagnostic graphs
+We continue the rest of our analysis by comparing the diagnostic graphs of the regression analysis with ans without the outlier data.
+
+With outlier:
 ```{r}
 par(mfcol=c(2,2))
 plot(reg1)
 ```
 
+Without outlier:
 
 ```{r}
 par(mfcol=c(2,2))
 plot(reg2)
 ```
+We make the following observations when comparing Graphs 2 and 3 for reg1 and reg2s:
 
-By observing diagnostic graphs 2 and 3 for reg1 and reg2, we can see that in the case of graph 2 (Scale-Location), the data points are grouped describe a pattern.
+  1. We observe in graph $2.1$ (Residual vs Fitted), the data points have a rather linear pattern and outlier that alters the pattern. Graph $3.1$ does not define a clear pattern.
+  2. For the Normal Q-Q plots, in general, the plot should follow the bi-sector i.e. the points should le on the bisecting line. While all points are close to the bisector in both Graphs 2 and 3, there is more deviation in the Graph 2 (2.2) especially at the top right. This deviation is not present in the Grap 3 (3.2)
+  3. For linear regression, the Scale Location graph should be without a clear structure and this is better presented in Graph 3 (3.3)
 
-graph 3 comparison: More symetric wrt zero (reg2). reg1 not that symetric.
+## 3. Study of the contribution to the total weight of each part of the brain
+In this part, we try to understand the contribution of each part of the brain to the total weight. The variable to explain is the total weight of the brain (variable BRW). The potentially explanatory variables are the volume of the auditory part of the brain (variable AUD), the volume of the olfactory zone (MOB), and the volume of the hippocampus (HIP).
 
+```{r}
+phytoNum=phyto[, c(4:8)]
+mat.cor=cor(phytoNum)
+corrplot(mat.cor, type="upper")
+```
 
-## 3. Study of the contribution to the total weight of each part of the
-brain
+In the following, we will check the impact of combining measurements of different parts of the brain. We do this by check this my computing the correlation of each variable to the prediction.
+
+```{r}
+cor.test(phyto$BRW,phyto$HIP)
+cor.test(phyto$BRW,phyto$MOB)
+cor.test(phyto$BRW,phyto$AUD)
+```
+In general, the smaller the p-value, the higher the correlation of the exploratory variable to the brain weight. From the above results, we see that hippocampus (HIP) and olfactory zone (MOB) variables have very small p-values and correlation above $0.8834$ which shows that there is a correlation between those variables and the response. On the other hand, although the p-value of the auditory (AUD) variable is less than $0.05$ at $0.03$, the correlation is not as strong with only $0.5284$ correlation. Therefore, we conclude that HIP and MOB are the variables that produce the highest impact on the response.
+
+### Mathematical form
+The expression of the model estimated for linear regression is: $$BRW = \hat{\beta}_1 + \hat{\beta}_2 \times AUD + \hat{\beta}_3 \times MOB + \hat{\beta}_4 \times HIP + \epsilon$$.
+
+```{r}
+regm=lm(BRW~AUD+MOB+HIP,data=phytobis)
+summary(regm)
+anova(regm)
+```
+
+Again we do an analysis of the results of ANOVA by looking at key properties:
+
+  1. Intercept: $\hat{\beta}_1 = -312.692$.
+  2. $\hat{\beta}_2 = 47.989$, $\hat{\beta}_3 = -2.444$, $\hat{\beta}_4 = 15.981$.
+  3. Multiple regression equation: $BRW = -312.692 + 47.989 \times AUD + -2.444 \times MOB + 15.981 \times HIP + \epsilon$.
+  4. Test statistics: $T_{\hat{\beta}_1} = 7.652$ and $T_{\hat{\beta}_2} = 22.659$.
+  5. The p-values for HIP and AUD are $3.85 \times 10^{-8}$ and $1.52 \times 10^{-5}$ which are very small values showing that they have an influence on the output.
+  6. However, MOB has a p-value of $0.46034$ indicating that it does not influence the output and should be removed from the model.
+  7. Based on the above observations, we can say that AUD and HIP have an effect on brain mass.
+  
+```{r}
+reg0 = lm(BRW ~ 1, data = phyto)
+step(reg0, scope=BRW~AUD + MOB + HIP, direction="forward")
+```
+The function `step` chooses a model using the __Akaike information criterion (AIC)__ in a stepwise algorithm. Starting from an initial model (in this case `reg0`), the algorithm finds the best model by incrementally adding parameters to the model and selecting the model with the lowest AIC. In this case the best model is `BRW ~ HIP + MOB + AUD`.
+
+## 4. Link between volume of the auditory part and diet
+
+```{r}
+myData$Diet_F = as.factor(myData$Diet)
+with(myData, plot(AUD~Diet))
+with(myData, plot(AUD~Diet_F))
+```
+
+While both graphs attempt to present the same data, the first graph shows the individual data points - making it possible to quickly observe important properties of each dietary category - and the second graph uses box plots that are not well-suited to the data. In particular, categories 2 and 4 have very few data points making it difficult to correctly interpret.
+
+```{r}
+lm = lm(AUD~Diet_F, data=myData)
+anova(lm)
+```
+
+The p-value of ANOVA is $0.4323$ > $0.05$. This indicates that the diet may not have an impact on the auditory volume of the bats. Nonetheless, without further statistical tests, it is difficult to make strong conclusions. Also, the previous graphs show that a straight line may not fit the data correctly so a linear model may not be appropriate.  
